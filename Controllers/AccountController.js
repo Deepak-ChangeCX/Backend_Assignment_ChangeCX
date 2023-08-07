@@ -7,10 +7,14 @@ const otpGenerator = require("otp-generator");
 dotenv.config();
 const secret = process.env.SECRET;
 
-const ERROR_USER_EXISTS = "User already exists";
-const ERROR_NO_USER = "No User Exists with the Given Mail Id/Mobile Number";
-const ERROR_USER_ACCESS_REMOVED = "User Access Denied Contact Customer Support";
-const ERROR_INVALID_CREDENTIALS = "Invalid Credentials";
+const ERRORS = {
+  USER_EXISTS: "User already exists",
+  NO_USER: "No User Exists with the Given Mail Id/Mobile Number",
+  USER_ACCESS_REMOVED: "User Access Denied Contact Customer Support",
+  INVALID_CREDENTIALS: "Invalid Credentials",
+  INTERNAL_ERROR: "Internal Server Error",
+  BAD_REQUEST: "Bad Request Invalid Data Recived",
+};
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -21,9 +25,9 @@ const transporter = nodemailer.createTransport({
 });
 
 const registerUser = async (req, res) => {
-   try {
+  try {
     const { FirstName, LastName, EmailId, PhoneNo, Password, Role } = req.body;
-    console.log(req.body);
+    // console.log(req.body);
 
     const existingUser = await User.findOne({
       $or: [{ EmailId }, { PhoneNo }],
@@ -32,14 +36,14 @@ const registerUser = async (req, res) => {
       if (!existingUser.IsVerified) {
         await User.findByIdAndDelete(existingUser._id);
       } else if (existingUser) {
-        return res.status(400).json({ message: ERROR_USER_EXISTS });
+        return res.status(400).json({ message: ERRORS.USER_EXISTS });
       }
     }
 
     const otp = otpGenerator.generate(6, {
       digits: true,
-      alphabets: false,
-      upperCase: false,
+      lowerCaseAlphabets: false,
+      upperCaseAlphabets: false,
       specialChars: false,
     });
     const hash = await bcrypt.hash(Password, 10);
@@ -80,25 +84,28 @@ const registerUser = async (req, res) => {
       };
       await transporter.sendMail(mailOptions);
     } catch (e) {
-      return res.status(500).json({ message: e.message });
+      return res
+        .status(500)
+        .json({ message: ERRORS.INTERNAL_ERROR, error: e.message });
     }
 
     return res.status(200).json({
       message: "Otp Send to your maild Id",
     });
   } catch (e) {
-    return res.status(400).json({ message: e.message });
+    return res
+      .status(400)
+      .json({ message: ERRORS.BAD_REQUEST, error: e.message });
   }
 };
 
 const verifyOTP = async (req, res) => {
-   try {
+  try {
     const { email, otp } = req.body;
 
     const user = await User.findOne({ EmailId: email });
 
     if (user.Otp !== otp) {
-      await User.findByIdAndDelete(user._id);
       return res.status(401).json({ message: "Invalid OTP" });
     }
     user.IsVerified = true;
@@ -130,13 +137,17 @@ const verifyOTP = async (req, res) => {
       };
       await transporter.sendMail(mailOptions);
     } catch (e) {
-      return res.status(500).json({ message: e.message });
+      return res
+        .status(500)
+        .json({ message: ERRORS.INTERNAL_ERROR, error: e.message });
     }
     return res
       .status(201)
       .json({ message: "Registration Successfull", user: user });
   } catch (e) {
-    return res.status(400).json({ message: e.message });
+    return res
+      .status(400)
+      .json({ message: ERRORS.BAD_REQUEST, error: e.message });
   }
 };
 
@@ -149,15 +160,15 @@ const loginUser = async (req, res) => {
       : await User.findOne({ PhoneNo: username });
 
     if (!isUser || !isUser.IsVerified) {
-      return res.status(404).json({ message: ERROR_NO_USER });
+      return res.status(404).json({ message: ERRORS.NO_USER });
     } else if (isUser.IsDeleted) {
-      return res.status(400).json({ message: ERROR_USER_ACCESS_REMOVED });
+      return res.status(400).json({ message: ERRORS.USER_ACCESS_REMOVED });
     }
 
     const isPasswordMatch = await bcrypt.compare(password, isUser.Password);
 
     if (!isPasswordMatch) {
-      return res.status(401).json({ message: ERROR_INVALID_CREDENTIALS });
+      return res.status(401).json({ message: ERRORS.INVALID_CREDENTIALS });
     }
 
     const token = jwt.sign(
@@ -174,7 +185,9 @@ const loginUser = async (req, res) => {
       user: isUser,
     });
   } catch (e) {
-    return res.status(400).json({ message: e.message });
+    return res
+      .status(500)
+      .json({ message: ERRORS.INTERNAL_ERROR, error: e.message });
   }
 };
 

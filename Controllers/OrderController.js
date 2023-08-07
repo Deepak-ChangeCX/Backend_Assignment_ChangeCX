@@ -1,6 +1,12 @@
 const OrderItem = require("../Modals/OrderSchema");
 const Product = require("../Modals/ProductSchema");
 
+const ERRORS = {
+  INTERNAL_ERROR: "Internal Server Error",
+  ORDER_NOT_FOUND: "Order Not Found",
+  BAD_REQUEST: "Bad Request Invalid data"
+};
+
 const getOrders = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -14,7 +20,9 @@ const getOrders = async (req, res) => {
 
     return res.status(200).json({ message: "Success", orders: orders });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    return res
+      .status(500)
+      .json({ message: ERRORS.INTERNAL_ERROR, error: error.message });
   }
 };
 
@@ -50,7 +58,9 @@ const createOrder = async (req, res) => {
       .status(201)
       .json({ message: "Order placed successfully", order: newOrder });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    return res
+      .status(500)
+      .json({ message: ERRORS.INTERNAL_ERROR, error: error.message });
   }
 };
 
@@ -59,6 +69,10 @@ const updateOrderStatus = async (req, res) => {
     const orderId = req.params.orderId;
     const { status } = req.body;
 
+    if(!status){
+      return res.status(400).json({message:ERRORS.BAD_REQUEST})
+    }
+
     const updatedOrder = await OrderItem.findByIdAndUpdate(
       orderId,
       { status },
@@ -66,13 +80,15 @@ const updateOrderStatus = async (req, res) => {
     );
 
     if (!updatedOrder) {
-      return res.status(404).json({ message: "Order not found" });
+      return res.status(404).json({ message: ERRORS.ORDER_NOT_FOUND });
     }
     // const orders = await OrderItem.find().sort({ createdAt: -1 });
 
     return res.status(200).json({ message: `Status Updated to ${status}` });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    return res
+      .status(500)
+      .json({ message: ERRORS.INTERNAL_ERROR, error: error.message });
   }
 };
 
@@ -84,7 +100,9 @@ const getOrderById = async (req, res) => {
 
     return res.status(200).json({ message: "Success", orders: orders });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    return res
+      .status(500)
+      .json({ message: ERRORS.INTERNAL_ERROR, error: error.message });
   }
 };
 

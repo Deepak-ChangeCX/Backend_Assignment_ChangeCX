@@ -1,30 +1,36 @@
 const User = require("../Modals/UserSchema");
 const Product = require("../Modals/ProductSchema");
 const OrderItem = require("../Modals/OrderSchema");
-
-const authorize = require("../Middleware/AdminAuth");
 const express = require("express");
 const router = express.Router();
 
+const ERRORS = {
+  NOT_FOUND: "Product not found",
+  USER_NOT_FOUND: "User not found",
+  INTERNAL_ERROR:"Internal Server Error",
+  BAD_REQUEST:"Invalid Input Bad Request"
+};
+
+
 const getDashboardUsers = async (req, res) => {
   try {
-        const page = parseInt(req.query.page) || 1;
-        const limit = 6;
+    const page = parseInt(req.query.page) || 1;
+    const limit = 6;
+
+    const skipCount = (page - 1) * limit;
+    const users = await User.find({ _id: { $ne: req.user } })
+      .sort({ createdAt: -1 })
+      .skip(skipCount)
+      .limit(limit);
     
-        const skipCount = (page - 1) * limit;
-        const users = await User.find({ _id: { $ne: req.user } })
-          .sort({ createdAt: -1 })
-          .skip(skipCount)
-          .limit(limit);
-    
-        return res.status(200).json({ users: users });
-      } catch (e) {
-        return res.status(400).json({ message: e.message });
-      }
+    return res.status(200).json({ users: users });
+  } catch (e) {
+    return res.status(500).json({ message: ERRORS.INTERNAL_ERROR , error:e.message });
+  }
 };
 
 const getDashboardOrders = async (req, res) => {
-   try {
+  try {
     const page = parseInt(req.query.page) || 1;
     const limit = 6;
 
@@ -36,7 +42,7 @@ const getDashboardOrders = async (req, res) => {
 
     return res.status(200).json({ orders: orders });
   } catch (e) {
-    return res.status(400).json({ message: e.message });
+    return res.status(500).json({ message: ERRORS.INTERNAL_ERROR , error:e.message });
   }
 };
 
@@ -48,7 +54,7 @@ const updateProduct = async (req, res) => {
 
     const product = await Product.findById(productId);
     if (!product) {
-      return res.status(404).json({ message: "Product not found" });
+      return res.status(404).json({ message: ERRORS.NOT_FOUND });
     }
 
     // Update the product fields based on the updateData object
@@ -76,7 +82,7 @@ const updateProduct = async (req, res) => {
       .status(200)
       .json({ message: "Product updated successfully", product: product });
   } catch (e) {
-    return res.status(400).json({ message: e.message });
+    return res.status(400).json({ message: ERRORS.BAD_REQUEST , error:e.message });
   }
 };
 
@@ -104,72 +110,67 @@ const addProduct = async (req, res) => {
       .status(201)
       .json({ message: "Product updated successfully", product: product });
   } catch (e) {
-    return res.status(400).json({ message: e.message });
+    return res.status(400).json({ message: ERRORS.BAD_REQUEST , error:e.message });
   }
 };
 
 const getDashboardProducts = async (req, res) => {
-    try {
-      const page = parseInt(req.query.page) || 1;
-      const limit = 6;
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = 6;
 
-      const skipCount = (page - 1) * limit;
-      const products = await Product.find()
-        .sort({ createdAt: -1 })
-        .skip(skipCount)
-        .limit(limit);
+    const skipCount = (page - 1) * limit;
+    const products = await Product.find()
+      .sort({ createdAt: -1 })
+      .skip(skipCount)
+      .limit(limit);
 
-      return res.status(200).json({ products: products });
-    } catch (e) {
-      return res.status(400).json({ message: e.message });
-    }
-  
+    return res.status(200).json({ products: products });
+  } catch (e) {
+    return res.status(500).json({ message: ERRORS.INTERNAL_ERROR , error:e.message });
+  }
 };
 
 const removeUserAccess = async (req, res) => {
-    try {
-      const userId = req.params.userId;
+  try {
+    const userId = req.params.userId;
 
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      user.IsDeleted = true;
-
-      await user.save();
-
-      return res
-        .status(200)
-        .json({ message: "User Access Removed", user: user });
-    } catch (error) {
-      return res.status(400).json({ message: error.message });
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: ERRORS.USER_NOT_FOUND });
     }
+
+    user.IsDeleted = true;
+
+    await user.save();
+
+    return res.status(200).json({ message: "User Access Removed", user: user });
+  } catch (e) {
+    return res.status(500).json({message:ERRORS.INTERNAL_ERROR ,error: e.message });
+  }
 };
 
 const approveUserAccess = async (req, res) => {
-    try {
-      const userId = req.params.userId;
+  try {
+    const userId = req.params.userId;
 
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      user.IsDeleted = false;
-
-      await user.save();
-
-      return res
-        .status(200)
-        .json({ message: "User Access Removed", user: user });
-    } catch (error) {
-      return res.status(400).json({ message: error.message });
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: ERRORS.USER_NOT_FOUND });
     }
+
+    user.IsDeleted = false;
+
+    await user.save();
+
+    return res.status(200).json({ message: "User Access Removed", user: user });
+  } catch (e) {
+    return res.status(500).json({ message: ERRORS.INTERNAL_ERROR , error:e.message });
+  }
 };
 
 const addMultipleProducts = async (req, res) => {
-   try {
+  try {
     const products = req.body;
 
     const AddData = await Product.insertMany(req.body);
@@ -179,7 +180,7 @@ const addMultipleProducts = async (req, res) => {
       product: AddData,
     });
   } catch (e) {
-    return res.status(400).json({ message: e.message });
+    return res.status(400).json({ message: ERRORS.BAD_REQUEST , error:e.message });
   }
 };
 
@@ -190,7 +191,7 @@ const deleteProduct = async (req, res) => {
     const deletedProduct = await Product.findByIdAndDelete(productId);
 
     if (!deletedProduct) {
-      return res.status(404).json({ message: "Product not found" });
+      return res.status(404).json({ message: ERRORS.NOT_FOUND });
     }
 
     return res.status(200).json({
@@ -198,7 +199,7 @@ const deleteProduct = async (req, res) => {
       product: deletedProduct,
     });
   } catch (e) {
-    return res.status(400).json({ message: e.message });
+    return res.status(500).json({ message: ERRORS.INTERNAL_ERROR , error:e.message });
   }
 };
 

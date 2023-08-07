@@ -1,5 +1,12 @@
 const User = require("../Modals/UserSchema");
 
+const ERRORS = {
+  BAD_REQUEST: "Bad request Invalid data recieved",
+  USER_NOT_FOUND: "User not found by given id",
+  PRODUCT_NOT_FOUND: "product not found!",
+  INTERNAL_ERROR: "Internal Server Error",
+};
+
 const getCartItems = async (req, res) => {
   try {
     const user = await User.findById(req.user);
@@ -9,7 +16,7 @@ const getCartItems = async (req, res) => {
 
     return res.status(200).json({ CartItems });
   } catch (e) {
-    return res.status(400).json({ message: e.message });
+    return res.status(500).json({ message: INTERNAL_ERROR, error: e.message });
   }
 };
 
@@ -20,11 +27,14 @@ const updateCart = async (req, res) => {
     if (product.InStock < qty) {
       return res
         .status(400)
-        .json({ message: `Only ${product.InStock} items left In Stock` });
+        .json({
+          message: `Only ${product.InStock} items left In Stock`,
+          error: ERRORS.BAD_REQUEST,
+        });
     }
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: ERRORS.USER_NOT_FOUND });
     }
 
     const existingProductIndex = user.CartItems.findIndex(
@@ -37,7 +47,10 @@ const updateCart = async (req, res) => {
       ) {
         return res
           .status(400)
-          .json({ message: `Only ${product.InStock} items left In Stock` });
+          .json({
+            message: `Only ${product.InStock} items left In Stock`,
+            error: ERRORS.BAD_REQUEST,
+          });
       }
       user.CartItems = user.CartItems.map((items, key) => {
         if (key === existingProductIndex) {
@@ -60,7 +73,9 @@ const updateCart = async (req, res) => {
       .status(201)
       .json({ message: "Product added to cart successfully", user: user });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    return res
+      .status(500)
+      .json({ message: ERRORS.INTERNAL_ERROR, error: error.message });
   }
 };
 
@@ -72,7 +87,7 @@ const updateCartItemQuantity = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: ERRORS.USER_NOT_FOUND });
     }
 
     const productIndex = user.CartItems.findIndex(
@@ -80,7 +95,7 @@ const updateCartItemQuantity = async (req, res) => {
     );
 
     if (productIndex === -1) {
-      return res.status(404).json({ message: "Product not found in cart" });
+      return res.status(404).json({ message: ERRORS.PRODUCT_NOT_FOUND });
     } else {
       if (mode === "add") {
         user.CartItems = user.CartItems.map((items, key) => {
@@ -111,18 +126,20 @@ const updateCartItemQuantity = async (req, res) => {
       .status(200)
       .json({ message: "Cart item quantity updated successfully", user: user });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    return res
+      .status(500)
+      .json({ message: ERRORS.INTERNAL_ERROR, error: error.message });
   }
 };
 
 const removeCartItem = async (req, res) => {
-   try {
+  try {
     const userId = req.user;
     const productId = req.params.productId;
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: ERRORS.USER_NOT_FOUND });
     }
 
     user.CartItems = user.CartItems.filter((item) => item._id !== productId);
@@ -133,7 +150,9 @@ const removeCartItem = async (req, res) => {
       .status(200)
       .json({ message: "Product removed from cart successfully", user: user });
   } catch (error) {
-    return res.status(400).json({ message: error.message });
+    return res
+      .status(500)
+      .json({ message: ERRORS.INTERNAL_ERROR, error: error.message });
   }
 };
 
@@ -141,14 +160,16 @@ const clearCart = async (req, res) => {
   try {
     const user = await User.findById(req.user);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res.status(404).json({ message: ERRORS.USER_NOT_FOUND });
     }
 
     user.CartItems = [];
     await user.save();
     return res.status(200).json({ message: "User Cart Updated", user: user });
   } catch (e) {
-    return res.status(400).json({ message: e.message });
+    return res
+      .status(500)
+      .json({ message: ERRORS.INTERNAL_ERROR, error: e.message });
   }
 };
 
